@@ -1,7 +1,8 @@
 import React, { useState,useEffect  } from 'react';
 import { Alert, TextInput, View, Text, Button, StyleSheet, Modal, TouchableOpacity, SafeAreaView ,ScrollView} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { xmlAnfrage, filterItdPointsFromXml } from './routenplaner_v2';
+import {filterItdPointsFromXml } from './scripts/routenplaner_v2';
+import { validateAndProceed } from './scripts/applicationLogic';
 
 type PickerMode = 'date' | 'time';
 
@@ -60,16 +61,17 @@ const App = () => {
   const handleSubmit = async () => {
     const formattedDate = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
     const formattedTime = `${time.getHours().toString().padStart(2, '0')}${time.getMinutes().toString().padStart(2, '0')}`;
+    validateAndProceed(originInput,destinationInput);
 
     if (originInput && destinationInput && formattedDate && formattedTime) {
       try {
         const itdPoints = await filterItdPointsFromXml(originInput, destinationInput, formattedDate, formattedTime);
         setRoutenText(itdPoints);
         console.log(itdPoints);
-        Alert.alert("Erfolg", "Anfrage erfolgreich. Details siehe Konsole.");
+        //Alert.alert("Erfolg", "Anfrage erfolgreich. Details siehe Konsole.");
       } catch (error) {
         console.error('Anfrage fehlgeschlagen:', error);
-        Alert.alert("Fehler", "Anfrage fehlgeschlagen. Details siehe Konsole.");
+        //Alert.alert("Fehler", "Anfrage fehlgeschlagen. Details siehe Konsole.");
       }
     } else {
       Alert.alert("Fehler", "Bitte stellen Sie sicher, dass alle Felder korrekt ausgefüllt sind.");
@@ -111,7 +113,7 @@ const App = () => {
       <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <Text style={styles.text}>
-          '{routenText}'
+          {routenText}
         </Text>
       </ScrollView>
     </SafeAreaView>
