@@ -1,5 +1,5 @@
 // Definiert eine Funktion, um Routeninformationen aus einer XML-Antwort zu extrahieren und in JSON umzuwandeln.
-export function extractItdPartialRouteListToJson(xmlData) {
+export function extractItdPartialRouteListToJsonString(xmlData) {
     // Regex zum Finden von <itdPartialRouteList>-Elementen im XML-String
     const itdPartialRouteListRegex = /<itdPartialRouteList>.*?<\/itdPartialRouteList>/gs;
     // Versucht, alle <itdPartialRouteList>-Elemente zu matchen
@@ -116,4 +116,88 @@ export function extractItdPartialRouteListToJson(xmlData) {
   }
   
   
-  
+  export function extractItdPartialRouteListToJson(xmlData) {
+    const itdPartialRouteListRegex = /<itdPartialRouteList>.*?<\/itdPartialRouteList>/gs;
+    const itdPartialRouteListMatch = xmlData.match(itdPartialRouteListRegex);
+    let routes = [];
+
+    if (itdPartialRouteListMatch) {
+        itdPartialRouteListMatch.forEach((partialRouteList) => {
+            const itdPartialRouteRegex = /<itdPartialRoute .*?<\/itdPartialRoute>/gs;
+            const itdPartialRoutesMatches = partialRouteList.match(itdPartialRouteRegex) || [];
+            
+            itdPartialRoutesMatches.forEach((route, index) => {
+                let routeDetails = {
+                    Teilroute: index + 1,
+                    Dauer: "N/A",
+                    Verkehrsmittel: [],
+                    Punkte: []
+                };
+
+                const transportMatches = route.match(/<itdMeansOfTransport .*?\/>/gs) || [];
+                transportMatches.forEach((means) => {
+                    const attrs = means.match(/(\w+)="([^"]*)"/g).reduce((acc, attr) => {
+                        const [key, value] = attr.split("=");
+                        acc[key] = value.replace(/"/g, '');
+                        return acc;
+                    }, {});
+                    
+                    routeDetails.Verkehrsmittel.push({
+                        Typ: attrs.type || "N/A",
+                        Name: attrs.name || "N/A",
+                        Kurzname: attrs.shortName || "",
+                        Symbol: attrs.symbol || "",
+                        Ziel: attrs.destination || "N/A"
+                    });
+                });
+
+                const durationMatch = route.match(/<itdDuration .*?timeMinute="(\d+)"\/>/);
+                routeDetails.Dauer = durationMatch ? `${durationMatch[1]} Minuten` : "N/A";
+
+                const pointsMatches = route.match(/<itdPoint .*?<\/itdPoint>/gs) || [];
+                let firstPointTime = null;
+                let secondPointTime = null;
+
+                pointsMatches.forEach((point, idx) => {
+                    const name = point.match(/name="([^"]*)"/)?.[1];
+                    const stopID = point.match(/stopID="([^"]*)"/)?.[1];
+                    const platform = point.match(/platform="([^"]*)"/)?.[1];
+
+                    const timeMatches = point.match(/<itdTime .*?>/g) || [];
+                    const times = timeMatches.map(time => {
+                        const hour = time.match(/hour="(\d+)"/)?.[1];
+                        const minute = time.match(/minute="(\d+)"/)?.[1];
+                        return hour && minute ? `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}` : null;
+                    }).filter(time => time !== null && time !== "00:00");
+
+                    let time = times.length > 0 ? times[0] : "N/A";
+                    if (idx === 0) firstPointTime = time;
+                    if (idx === 1) secondPointTime = time;
+
+                    routeDetails.Punkte.push({
+                        Name: name,
+                        StopID: stopID,
+                        Platform: platform,
+                        Zeit: time
+                    });
+                });
+
+                if (routeDetails.Dauer === "N/A" && firstPointTime && secondPointTime) {
+                    const [firstHour, firstMinute] = firstPointTime.split(':').map(Number);
+                    const [secondHour, secondMinute] = secondPointTime.split(':').map(Number);
+                    let duration = (secondHour * 60 + secondMinute) - (firstHour * 60 + firstMinute);
+                    if (duration < 0) {
+                        duration += 24 * 60;
+                    }
+                    routeDetails.Dauer = `${duration} Minuten`;
+                }
+
+                routes.push(routeDetails);
+            });
+        });
+    } else {
+        return { error: "Keine itdPartialRouteList gefunden." };
+    }
+
+    return routes;
+}

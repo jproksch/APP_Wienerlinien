@@ -1,10 +1,14 @@
-import React, { useState,useEffect  } from 'react';
-import { Alert, TextInput, View, Text, Button, StyleSheet, Modal, TouchableOpacity, SafeAreaView ,ScrollView} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, TextInput, View, Text, Button, StyleSheet, Modal, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {filterItdPointsFromXml } from './scripts/routenplaner_v2';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
+
+import { filterItdPointsFromXml } from './scripts/routenplaner';
 import { validateAndProceed } from './scripts/applicationLogic';
 
 type PickerMode = 'date' | 'time';
+
 
 const App = () => {
   const [originInput, setOriginInput] = useState('');
@@ -18,39 +22,34 @@ const App = () => {
   const [routenText, setRoutenText] = useState('');
 
   useEffect(() => {
-    // Formatierung für das Anzeigedatum
+    requestLocationPermission();
     const newDateText = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1)
       .toString()
       .padStart(2, '0')}.${date.getFullYear()}`;
     setDateText(newDateText);
-  
-    // Formatierung für die Anzeigezeit
+
     const newTimeText = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes()
       .toString()
       .padStart(2, '0')}`;
     setTimeText(newTimeText);
   }, [date, time]);
 
+  async function requestLocationPermission() {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission to access location was denied');
+    }
+  }
 
   const handlePickerConfirm = (event, selectedValue) => {
+    setPickerModalVisibility(false);
     if (pickerMode === 'date') {
       const selectedDate = selectedValue || date;
       setDate(selectedDate);
-      setDateText(
-        `${selectedDate.getDate().toString().padStart(2, '0')}.${(selectedDate.getMonth() + 1)
-          .toString()
-          .padStart(2, '0')}.${selectedDate.getFullYear()}`
-      );
     } else {
       const selectedTime = selectedValue || time;
       setTime(selectedTime);
-      setTimeText(
-        `${selectedTime.getHours().toString().padStart(2, '0')}:${selectedTime.getMinutes()
-          .toString()
-          .padStart(2, '0')}`
-      );
     }
-    setPickerModalVisibility(false);
   };
 
   const openPickerModal = (mode: PickerMode) => {
@@ -59,24 +58,26 @@ const App = () => {
   };
 
   const handleSubmit = async () => {
+    validateAndProceed(originInput, destinationInput);
     const formattedDate = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
     const formattedTime = `${time.getHours().toString().padStart(2, '0')}${time.getMinutes().toString().padStart(2, '0')}`;
-    validateAndProceed(originInput,destinationInput);
-
-    if (originInput && destinationInput && formattedDate && formattedTime) {
+    if (originInput && destinationInput) {
       try {
         const itdPoints = await filterItdPointsFromXml(originInput, destinationInput, formattedDate, formattedTime);
         setRoutenText(itdPoints);
-        console.log(itdPoints);
-        //Alert.alert("Erfolg", "Anfrage erfolgreich. Details siehe Konsole.");
       } catch (error) {
-        console.error('Anfrage fehlgeschlagen:', error);
-        //Alert.alert("Fehler", "Anfrage fehlgeschlagen. Details siehe Konsole.");
+        Alert.alert("Fehler", "Anfrage fehlgeschlagen. Details siehe Konsole.");
       }
     } else {
       Alert.alert("Fehler", "Bitte stellen Sie sicher, dass alle Felder korrekt ausgefüllt sind.");
     }
   };
+
+  // Platzieren Sie hier die Marker-Daten
+  const markers = [
+    { latitude: 48.2082, longitude: 16.3738, title: 'Wien', description: 'Hauptstadt von Österreich' },
+    // Weitere Marker können hier hinzugefügt werden
+  ];
 
   return (
     <View style={styles.container}>
@@ -111,17 +112,34 @@ const App = () => {
       <Button title="Anfrage senden" onPress={handleSubmit} />
 
       <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <Text style={styles.text}>
-          {routenText}
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+        <ScrollView style={styles.scrollView}>
+          <Text style={styles.text}>{routenText}</Text>
+        </ScrollView>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: 48.2082,
+            longitude: 16.3738,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+          showsUserLocation={true}
+        >
+          {markers.map((marker, index) => (
+            <Marker
+              key={index}
+              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+              title={marker.title}
+              description={marker.description}
+            />
+          ))}
+        </MapView>
+      </SafeAreaView>
 
       <Modal
         visible={isPickerModalVisible}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setPickerModalVisibility(false)}
       >
         <TouchableOpacity
@@ -130,12 +148,12 @@ const App = () => {
           onPressOut={() => setPickerModalVisibility(false)}
         >
           <View style={styles.modalContent}>
-            <DateTimePicker
-              value={pickerMode === 'date' ? date : time}
-              mode={pickerMode}
-              display="default"
-              onChange={handlePickerConfirm}
-            />
+          <DateTimePicker
+            value={pickerMode === 'date' ? date : time}
+            mode={pickerMode} // Keine Typzusicherung notwendig, wenn PickerMode korrekt definiert ist
+            display="default"
+            onChange={handlePickerConfirm}
+          />
           </View>
         </TouchableOpacity>
       </Modal>
@@ -149,15 +167,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    paddingTop: 100,
     fontSize: 22,
+    paddingTop: 50,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
   dateTimeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -196,8 +214,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   text: {
-    fontSize: 12
-  }
+    fontSize: 12,
+  },
+  map: {
+    width: '100%',
+    height: 300,
+  },
 });
 
 export default App;
