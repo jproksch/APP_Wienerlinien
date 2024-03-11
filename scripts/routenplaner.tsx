@@ -14,27 +14,24 @@ import {entWienern,extractStationsFromRoutes,GPSData,getGPSDataFromStopName} fro
  * @param {string} destinationName - Name der Zielstation
  * @param {string} date - Datum der Abfahrt
  * @param {string} time - Zeit der Abfahrt
- * @returns {Promise<string>} - Ein Promise, das beim Erfolg die Routeninformationen als JSON-String zurückgibt
+ * @returns {Promise<string>} - Ein Promise, das beim Erfolg die Routeninformationen als JSON-String und die GPSDaten zurückgibt
  */
-export async function filterItdPointsFromXml(originName: string, destinationName: string, date: string, time: string): Promise<string> {
+export async function filterItdPointsFromXml(originName: string, destinationName: string, date: string, time: string): Promise<[string, GPSData[]]> {
   try {
     let stationen = [];
-    let gpsLocation:GPSData[] = [];
+    let gpsLocation: GPSData[] = [];
     const werte = await extractItdPartialRouteListToJsonString(await xmlAnfrage(originName, destinationName, date, time));
+    let routeSummary = "";
     if (werte.length > 0) {
+      //console.log("Hier"+werte[0]);
+      routeSummary = getRoute(werte[0]);
       stationen = extractStationsFromRoutes(werte[0]);
       stationen.forEach(element => {
-        //console.log(element);
         gpsLocation.push(getGPSDataFromStopName(entWienern(element))); 
       });
     }
     
-    gpsLocation.forEach(element => {
-      console.log(element);
-    });
-    //console.log("Stationentest:\n"+gpsLocation);
-
-    return getRoute(werte[0]);
+    return [routeSummary, gpsLocation];
   } catch (error) {
     console.error('Fehler beim Abrufen der XML-Daten:', error);
     throw error; // Oder gib eine benutzerfreundliche Fehlermeldung zurück

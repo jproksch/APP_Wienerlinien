@@ -4,11 +4,11 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
+import { GPSData } from './scripts/dataModel';
 import { filterItdPointsFromXml } from './scripts/routenplaner';
 import { validateAndProceed } from './scripts/applicationLogic';
 
 type PickerMode = 'date' | 'time';
-
 
 const App = () => {
   const [originInput, setOriginInput] = useState('');
@@ -20,6 +20,7 @@ const App = () => {
   const [dateText, setDateText] = useState('');
   const [timeText, setTimeText] = useState('');
   const [routenText, setRoutenText] = useState('');
+  const [markers, setMarkers] = useState([]); // Verwendung von useState für Marker
 
   useEffect(() => {
     requestLocationPermission();
@@ -38,6 +39,7 @@ const App = () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission to access location was denied');
+      return;
     }
   }
 
@@ -58,26 +60,29 @@ const App = () => {
   };
 
   const handleSubmit = async () => {
-    validateAndProceed(originInput, destinationInput);
     const formattedDate = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
     const formattedTime = `${time.getHours().toString().padStart(2, '0')}${time.getMinutes().toString().padStart(2, '0')}`;
     if (originInput && destinationInput) {
       try {
-        const itdPoints = await filterItdPointsFromXml(originInput, destinationInput, formattedDate, formattedTime);
-        setRoutenText(itdPoints);
+        const response = await filterItdPointsFromXml(originInput, destinationInput, formattedDate, formattedTime);
+        const routeText = response[0];
+        console.log(routeText);
+        let gpsPoints = response[1]; // Annahme: gpsPoints könnte ungültige Werte enthalten
+    
+        // Filtern Sie ungültige GPS-Punkte aus
+        gpsPoints = gpsPoints.filter(point => point && point.latitude != null && point.longitude != null);
+    
+        if (gpsPoints.length === 0) {
+          throw new Error("Keine gültigen GPS-Punkte gefunden.");
+        }
+    
+        setRoutenText(routeText);
+        setMarkers(gpsPoints);
       } catch (error) {
-        Alert.alert("Fehler", "Anfrage fehlgeschlagen. Details siehe Konsole.");
+        Alert.alert("Fehler", `Anfrage fehlgeschlagen. Details: ${error.message}`);
       }
-    } else {
-      Alert.alert("Fehler", "Bitte stellen Sie sicher, dass alle Felder korrekt ausgefüllt sind.");
-    }
-  };
-
-  // Platzieren Sie hier die Marker-Daten
-  const markers = [
-    { latitude: 48.2082, longitude: 16.3738, title: 'Wien', description: 'Hauptstadt von Österreich' },
-    // Weitere Marker können hier hinzugefügt werden
-  ];
+    };
+  }
 
   return (
     <View style={styles.container}>
@@ -126,6 +131,7 @@ const App = () => {
           showsUserLocation={true}
         >
           {markers.map((marker, index) => (
+            
             <Marker
               key={index}
               coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
@@ -150,7 +156,7 @@ const App = () => {
           <View style={styles.modalContent}>
           <DateTimePicker
             value={pickerMode === 'date' ? date : time}
-            mode={pickerMode} // Keine Typzusicherung notwendig, wenn PickerMode korrekt definiert ist
+            mode={pickerMode} 
             display="default"
             onChange={handlePickerConfirm}
           />

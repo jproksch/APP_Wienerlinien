@@ -1,8 +1,14 @@
 // Importing the JSON data containing station information
 import haltestellen from '../assets/data/haltestellen.json';
+import { RoutenPlan } from './routenModel';
 
-// Type definition for GPS data, representing a tuple of longitude and latitude
-export type GPSData = [number, number];
+export type GPSData = {
+  latitude: number;
+  longitude: number;
+  title: string;
+  description: string;
+  color?: string
+};
 
 /**
  * Checks if a station exists in the dataset based on the provided station name.
@@ -21,12 +27,32 @@ export const verifyStationExists = (stationText: string): boolean => {
  * @param {string} stationText The name of the station to search for.
  * @returns {GPSData | null} Returns the GPS coordinates if the station is found, otherwise null.
  */
+/**
+ * Retrieves detailed information for a station based on the provided station name.
+ * 
+ * 
+ * !!!Achte auf verwechslung: 
+ * 
+ *       latitude: haltestelle.Longitude,
+ *       longitude: haltestelle.Latitude,
+ * 
+ * @param {string} stationText The name of the station to search for.
+ * @returns {StationData | null} Returns the detailed station information if found, otherwise null.
+ */
 export const getGPSDataFromStopName = (stationText: string): GPSData | null => {
   // Searches for a station in the dataset that matches the provided name
   const haltestelle = haltestellen.find(h => h.PlatformText === stationText);
   if (haltestelle) {
-    // Returns the longitude and latitude if the station is found
-    return [haltestelle.Longitude, haltestelle.Latitude];
+    console.log(haltestelle);
+    // Constructs the detailed station information object
+    const stationInfo: GPSData = {
+      latitude: haltestelle.Longitude,
+      longitude: haltestelle.Latitude,
+      title: haltestelle.PlatformText,
+      description: `DIVA: ${haltestelle.DIVA}`, // Example description using the DIVA number
+    };
+    console.log(stationInfo);
+    return stationInfo;
   }
   // Returns null if no station is found
   return null;
@@ -62,8 +88,6 @@ export function entWienern(stationText: string): string {
   // Returns the original station name if it doesn't start with "Wien "
   return stationText;
 }
-
-// Note: The 'arrayValueCleaner' function is declared but not implemented, hence no comments added.
 
 /**
  * Extracts and returns a list of unique station names from a JSON string containing route information.
