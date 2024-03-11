@@ -1,8 +1,6 @@
 import { Alert } from 'react-native';
 import { verifyStationExists } from './dataModel';
 import { xmlAnfrage } from './apiRequests';
-import { extractItdPartialRouteListToJson } from './xmlProcessing';
-
 
 export const validateAndProceed = async (originInput: string, destinationInput: string) => {
   try {

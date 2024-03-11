@@ -46,7 +46,7 @@ export function getRoute(data) {
     }
     return acc;
   }, { routen: [] });
-  console.log(routenPlan);
+  //console.log(routenPlan);
   return routenPlanToString(routenPlan);
 }
 

@@ -4,8 +4,9 @@ import haltestellen from '../assets/data/haltestellen.json';
 import { parse, differenceInMinutes, weeksToDays } from 'date-fns';
 import { Alert} from 'react-native';
 import { xmlAnfrage } from './apiRequests';
-import {extractItdPartialRouteListToJson,extractItdPartialRouteListToJsonString} from './xmlProcessing'
-import {getRoute} from './routenModel'
+import {extractItdPartialRouteListToJsonString} from './xmlProcessing';
+import {getRoute} from './routenModel';
+import {entWienern,extractStationsFromRoutes,GPSData,getGPSDataFromStopName} from './dataModel';
 
 /**
  * Extrahiert Routeninformationen aus einer XML-Antwort.
@@ -17,16 +18,25 @@ import {getRoute} from './routenModel'
  */
 export async function filterItdPointsFromXml(originName: string, destinationName: string, date: string, time: string): Promise<string> {
   try {
-    
+    let stationen = [];
+    let gpsLocation:GPSData[] = [];
     const werte = await extractItdPartialRouteListToJsonString(await xmlAnfrage(originName, destinationName, date, time));
-    return getRoute(werte);
+    if (werte.length > 0) {
+      stationen = extractStationsFromRoutes(werte[0]);
+      stationen.forEach(element => {
+        //console.log(element);
+        gpsLocation.push(getGPSDataFromStopName(entWienern(element))); 
+      });
+    }
     
+    gpsLocation.forEach(element => {
+      console.log(element);
+    });
+    //console.log("Stationentest:\n"+gpsLocation);
+
+    return getRoute(werte[0]);
   } catch (error) {
     console.error('Fehler beim Abrufen der XML-Daten:', error);
     throw error; // Oder gib eine benutzerfreundliche Fehlermeldung zurück
   }
 }
-
-
-
-
